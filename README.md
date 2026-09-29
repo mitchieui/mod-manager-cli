@@ -10,7 +10,15 @@ This is a fork of [jneb802/mod-manager-cli](https://github.com/jneb802/mod-manag
 
 ## Install
 
-The shell script and Homebrew instructions below install the original upstream version. For this fork's Mac and Windows builds, open a successful [CI run](https://github.com/mitchieui/mod-manager-cli/actions/workflows/ci.yml?query=branch%3Acodex%2Fwindows-profile-transfer) and download the matching artifact. GitHub requires you to sign in to download artifacts.
+Download this fork's [preview release](https://github.com/mitchieui/mod-manager-cli/releases/tag/v0.1.0-windows-preview.1):
+
+- [Windows (x64)](https://github.com/mitchieui/mod-manager-cli/releases/download/v0.1.0-windows-preview.1/mmcli-windows-amd64.exe)
+- [Mac (Apple Silicon)](https://github.com/mitchieui/mod-manager-cli/releases/download/v0.1.0-windows-preview.1/mmcli-darwin-arm64)
+- [Mac (Intel)](https://github.com/mitchieui/mod-manager-cli/releases/download/v0.1.0-windows-preview.1/mmcli-darwin-amd64)
+
+These are direct downloads; no GitHub sign-in is needed. Windows unit tests pass, but game launching and mod loading still need gameplay validation.
+
+The shell script and Homebrew instructions below install the original upstream version.
 
 ### Shell script (recommended for macOS/Linux)
 
@@ -36,7 +44,7 @@ brew install jneb802/tap/mmcli
 
 ### Manual download
 
-Download the latest binary for your platform from the original project's [Releases](https://github.com/jneb802/mod-manager-cli/releases), or extract this fork's `mmcli-macos` artifact, then:
+Download the latest binary for your platform from the original project's [Releases](https://github.com/jneb802/mod-manager-cli/releases), or use this fork's [Mac downloads](https://github.com/mitchieui/mod-manager-cli/releases/tag/v0.1.0-windows-preview.1), then:
 
 ```
 mkdir -p ~/.local/bin
@@ -47,7 +55,7 @@ mv "$binary" ~/.local/bin/mmcli
 
 ### Windows
 
-Install Steam and Valheim, then download and extract this fork's `mmcli-windows-amd64` artifact from [CI builds](https://github.com/mitchieui/mod-manager-cli/actions/workflows/ci.yml?query=branch%3Acodex%2Fwindows-profile-transfer). Rename `mmcli-windows-amd64.exe` to `mmcli.exe` and open PowerShell in that folder:
+Install Steam and Valheim, then [download the Windows executable](https://github.com/mitchieui/mod-manager-cli/releases/download/v0.1.0-windows-preview.1/mmcli-windows-amd64.exe). Rename it to `mmcli.exe` and open PowerShell in that folder:
 
 ```powershell
 .\mmcli.exe init
