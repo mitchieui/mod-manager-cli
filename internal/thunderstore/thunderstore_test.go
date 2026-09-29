@@ -1,8 +1,49 @@
 package thunderstore
 
 import (
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 )
+
+func TestFindPackageByQueryHexiumPrefix(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/Azumatt/AzuAutoStore/" {
+			http.NotFound(w, r)
+			return
+		}
+		fmt.Fprint(w, `{"namespace":"Azumatt","name":"AzuAutoStore","full_name":"Azumatt-AzuAutoStore","latest":{"version_number":"3.1.6","download_url":"https://cdn.hexium.gg/mod.zip","dependencies":[]}}`)
+	}))
+	defer server.Close()
+
+	original := sourceAPIs[SourceHexium]
+	sourceAPIs[SourceHexium] = server.URL + "/"
+	defer func() { sourceAPIs[SourceHexium] = original }()
+
+	pkg, err := FindPackageByQuery("hexium:Azumatt-AzuAutoStore")
+	if err != nil {
+		t.Fatalf("FindPackageByQuery failed: %v", err)
+	}
+	if pkg.Source != SourceHexium {
+		t.Fatalf("Source = %q, want %q", pkg.Source, SourceHexium)
+	}
+	if pkg.FullName != "Azumatt-AzuAutoStore" || pkg.Versions[0].VersionNumber != "3.1.6" {
+		t.Fatalf("unexpected package: %+v", pkg)
+	}
+}
+
+func TestFindPackageByQueryHexiumURL(t *testing.T) {
+	original := sourceAPIs[SourceHexium]
+	sourceAPIs[SourceHexium] = "http://127.0.0.1:1/"
+	defer func() { sourceAPIs[SourceHexium] = original }()
+
+	_, err := FindPackageByQuery("https://valheim.hexium.gg/mods/Azumatt/AzuAutoStore")
+	if err == nil || !strings.Contains(err.Error(), "could not fetch package from URL") {
+		t.Fatalf("expected a parsed Hexium URL fetch error, got %v", err)
+	}
+}
 
 func TestParseDep(t *testing.T) {
 	tests := []struct {
@@ -54,10 +95,10 @@ func TestParseDep(t *testing.T) {
 
 func TestSplitDep(t *testing.T) {
 	tests := []struct {
-		name     string
-		input    string
-		wantNil  bool
-		wantLen  int
+		name      string
+		input     string
+		wantNil   bool
+		wantLen   int
 		wantParts []string
 	}{
 		{

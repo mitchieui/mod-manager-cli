@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -168,35 +169,40 @@ func TestRegistryEnsureProfile(t *testing.T) {
 }
 
 func TestPathHelpers(t *testing.T) {
-	p := Paths{
-		ProfilesDir: "/home/user/.config/mmcli/profiles",
-		ValheimDir:  "/home/user/Valheim",
+	root := t.TempDir()
+	p := Paths{ProfilesDir: filepath.Join(root, "profiles"), ValheimDir: filepath.Join(root, "Valheim")}
+	profileRoot := filepath.Join(p.ProfilesDir, "test")
+	base := profileRoot
+	script := filepath.Join(p.ValheimDir, "run_bepinex.sh")
+	core := filepath.Join(p.ValheimDir, "BepInEx", "core")
+	log := filepath.Join(p.ValheimDir, "BepInEx", "LogOutput.log")
+	if runtime.GOOS == "windows" {
+		base = filepath.Join(base, "BepInEx")
+		script = ""
+		core = filepath.Join(base, "core")
+		log = filepath.Join(base, "LogOutput.log")
 	}
-
-	tests := []struct {
-		name     string
-		got      string
-		expected string
-	}{
-		{"ProfileDir", p.ProfileDir("test"), "/home/user/.config/mmcli/profiles/test"},
-		{"ProfilePluginsDir", p.ProfilePluginsDir("test"), "/home/user/.config/mmcli/profiles/test/plugins"},
-		{"ProfileConfigDir", p.ProfileConfigDir("test"), "/home/user/.config/mmcli/profiles/test/config"},
-		{"ProfilePatchersDir", p.ProfilePatchersDir("test"), "/home/user/.config/mmcli/profiles/test/patchers"},
-		{"ProfileMonomodDir", p.ProfileMonomodDir("test"), "/home/user/.config/mmcli/profiles/test/monomod"},
-		{"BepInExDir", p.BepInExDir(), "/home/user/Valheim/BepInEx"},
-		{"BepInExPluginsDir", p.BepInExPluginsDir(), "/home/user/Valheim/BepInEx/plugins"},
-		{"BepInExConfigDir", p.BepInExConfigDir(), "/home/user/Valheim/BepInEx/config"},
-		{"BepInExPatchersDir", p.BepInExPatchersDir(), "/home/user/Valheim/BepInEx/patchers"},
-		{"BepInExMonomodDir", p.BepInExMonomodDir(), "/home/user/Valheim/BepInEx/monomod"},
-		{"BepInExCoreDir", p.BepInExCoreDir(), "/home/user/Valheim/BepInEx/core"},
-		{"BepInExLogFile", p.BepInExLogFile(), "/home/user/Valheim/BepInEx/LogOutput.log"},
-		{"RunBepInExScript", p.RunBepInExScript(), "/home/user/Valheim/run_bepinex.sh"},
+	tests := []struct{ name, got, want string }{
+		{"ProfileDir", p.ProfileDir("test"), profileRoot},
+		{"ProfilePluginsDir", p.ProfilePluginsDir("test"), filepath.Join(base, "plugins")},
+		{"ProfileConfigDir", p.ProfileConfigDir("test"), filepath.Join(base, "config")},
+		{"ProfilePatchersDir", p.ProfilePatchersDir("test"), filepath.Join(base, "patchers")},
+		{"ProfileMonomodDir", p.ProfileMonomodDir("test"), filepath.Join(base, "monomod")},
+		{"ProfileCoreDir", p.ProfileCoreDir("test"), core},
+		{"ProfileLogFile", p.ProfileLogFile("test"), log},
+		{"BepInExDir", p.BepInExDir(), filepath.Join(p.ValheimDir, "BepInEx")},
+		{"BepInExPluginsDir", p.BepInExPluginsDir(), filepath.Join(p.ValheimDir, "BepInEx", "plugins")},
+		{"BepInExConfigDir", p.BepInExConfigDir(), filepath.Join(p.ValheimDir, "BepInEx", "config")},
+		{"BepInExPatchersDir", p.BepInExPatchersDir(), filepath.Join(p.ValheimDir, "BepInEx", "patchers")},
+		{"BepInExMonomodDir", p.BepInExMonomodDir(), filepath.Join(p.ValheimDir, "BepInEx", "monomod")},
+		{"BepInExCoreDir", p.BepInExCoreDir(), filepath.Join(p.ValheimDir, "BepInEx", "core")},
+		{"BepInExLogFile", p.BepInExLogFile(), filepath.Join(p.ValheimDir, "BepInEx", "LogOutput.log")},
+		{"RunBepInExScript", p.RunBepInExScript(), script},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.got != tt.expected {
-				t.Errorf("got %q, want %q", tt.got, tt.expected)
+			if tt.got != tt.want {
+				t.Errorf("got %q, want %q", tt.got, tt.want)
 			}
 		})
 	}
@@ -302,9 +308,9 @@ func TestRegistryJSONRoundTrip(t *testing.T) {
 	reg.SetMod("default", ModEntry{
 		Owner: "A", Name: "Mod", Version: "1.0.0",
 		IsDependency: true, Disabled: true,
-		Files: []string{"/path/to/file.dll"},
+		Files:        []string{"/path/to/file.dll"},
 		Dependencies: []string{"B-Dep"},
-		Target: "server", Anticheat: "whitelist",
+		Target:       "server", Anticheat: "whitelist",
 	})
 
 	data, err := json.MarshalIndent(reg, "", "  ")

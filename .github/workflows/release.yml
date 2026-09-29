@@ -58,6 +58,7 @@ jobs:
           GOOS=darwin GOARCH=arm64 go build -o dist/mmcli-darwin-arm64 -ldflags "-X mmcli/cmd.Version=$VERSION" .
           GOOS=darwin GOARCH=amd64 go build -o dist/mmcli-darwin-amd64 -ldflags "-X mmcli/cmd.Version=$VERSION" .
           GOOS=linux GOARCH=amd64 go build -o dist/mmcli-linux-amd64 -ldflags "-X mmcli/cmd.Version=$VERSION" .
+          GOOS=windows GOARCH=amd64 go build -o dist/mmcli-windows-amd64.exe -ldflags "-X mmcli/cmd.Version=$VERSION" .
           GOOS=linux GOARCH=amd64 go build -o dist/mmcli-agent-linux-amd64 -ldflags "-X main.Version=$VERSION" ./cmd/agent
 
       - name: Compute SHA256 hashes
@@ -79,6 +80,7 @@ jobs:
             dist/mmcli-darwin-arm64 \
             dist/mmcli-darwin-amd64 \
             dist/mmcli-linux-amd64 \
+            dist/mmcli-windows-amd64.exe \
             dist/mmcli-agent-linux-amd64
 
   update-homebrew:

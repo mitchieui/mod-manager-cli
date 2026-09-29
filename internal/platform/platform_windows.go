@@ -97,17 +97,18 @@ func NotifySignals(c chan<- os.Signal) {
 }
 
 func steamInstallPath() (string, error) {
-	keys := []string{
-		`HKCU\Software\Valve\Steam`,
-		`HKLM\SOFTWARE\WOW6432Node\Valve\Steam`,
-		`HKLM\SOFTWARE\Valve\Steam`,
+	keys := []struct{ key, value string }{
+		{`HKCU\Software\Valve\Steam`, "SteamPath"},
+		{`HKCU\Software\Valve\Steam`, "InstallPath"},
+		{`HKLM\SOFTWARE\WOW6432Node\Valve\Steam`, "InstallPath"},
+		{`HKLM\SOFTWARE\Valve\Steam`, "InstallPath"},
 	}
 	for _, key := range keys {
-		out, err := exec.Command("reg", "query", key, "/v", "InstallPath").CombinedOutput()
+		out, err := exec.Command("reg", "query", key.key, "/v", key.value).CombinedOutput()
 		if err != nil {
 			continue
 		}
-		if path := parseRegistryValue(string(out), "InstallPath"); path != "" {
+		if path := parseRegistryValue(string(out), key.value); path != "" {
 			return path, nil
 		}
 	}

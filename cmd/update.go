@@ -15,7 +15,7 @@ import (
 var updateCmd = &cobra.Command{
 	Use:   "update <mod>",
 	Short: "Update a mod to its latest version",
-	Long: `Remove and reinstall a mod to fetch the latest version from Thunderstore.
+	Long: `Remove and reinstall a mod to fetch the latest version from its package source.
 The mod's target and config files are preserved. The mod argument is matched
 by Owner-Name or just the mod Name.`,
 	Args: cobra.ExactArgs(1),
@@ -46,7 +46,7 @@ by Owner-Name or just the mod Name.`,
 var checkUpdatesCmd = &cobra.Command{
 	Use:   "check-updates",
 	Short: "Check for available mod updates in the active profile",
-	Long: `Query Thunderstore for each installed mod and report which ones have
+	Long: `Query each installed mod's package source and report which ones have
 newer versions available. Use --json for machine-readable output.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		paths, cfg, err := loadConfig()
@@ -72,7 +72,7 @@ newer versions available. Use --json for machine-readable output.`,
 			if mod.IsLocal || mod.Owner == "" {
 				continue
 			}
-			pkg, err := thunderstore.GetPackage(mod.Owner, mod.Name)
+			pkg, err := thunderstore.GetPackageFrom(mod.Source, mod.Owner, mod.Name)
 			if err != nil || len(pkg.Versions) == 0 {
 				continue
 			}

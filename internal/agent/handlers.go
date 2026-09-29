@@ -20,12 +20,12 @@ import (
 )
 
 type Handlers struct {
-	cfg              AgentConfig
-	cfgPath          string
-	pm               *ProcessManager
-	st               *StateTracker
-	version          string
-	lastAPIPlugins   []ModAPIPlugin // cached last successful mod API response
+	cfg            AgentConfig
+	cfgPath        string
+	pm             *ProcessManager
+	st             *StateTracker
+	version        string
+	lastAPIPlugins []ModAPIPlugin // cached last successful mod API response
 }
 
 func NewHandlers(cfg AgentConfig, cfgPath string, pm *ProcessManager, st *StateTracker, version string) *Handlers {
@@ -594,7 +594,7 @@ func (h *Handlers) HandleModsManage(w http.ResponseWriter, r *http.Request) {
 	switch req.Action {
 	case "add", "update":
 		cacheDir := agentCacheDir()
-		zipPath, _, err := downloadModZip(cacheDir, req.Mod.Owner, req.Mod.Name, req.Mod.Version)
+		zipPath, _, err := downloadModZip(cacheDir, req.Mod.Source, req.Mod.Owner, req.Mod.Name, req.Mod.Version)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "download failed: "+err.Error())
 			return

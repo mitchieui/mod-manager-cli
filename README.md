@@ -4,11 +4,15 @@
 
 # mmcli
 
-A command-line Valheim mod manager for macOS and Linux. Installs mods from [Thunderstore](https://thunderstore.io/c/valheim/), manages profiles, and launches the game with BepInEx.
+A command-line Valheim mod manager for macOS, Linux and Windows. Installs mods from [Thunderstore](https://thunderstore.io/c/valheim/) and [Hexium](https://valheim.hexium.gg/), manages profiles, and launches the game with BepInEx.
+
+This is a fork of [jneb802/mod-manager-cli](https://github.com/jneb802/mod-manager-cli). Credit for the original project goes to [jneb802](https://github.com/jneb802) and its contributors. This fork adds Hexium support, portable profile transfers, and Windows builds and tests, building on the original project's Windows implementation.
 
 ## Install
 
-### Shell script (recommended)
+The shell script and Homebrew instructions below install the original upstream version. For this fork's Mac and Windows builds, open a successful [CI run](https://github.com/mitchieui/mod-manager-cli/actions/workflows/ci.yml?query=branch%3Acodex%2Fwindows-profile-transfer) and download the matching artifact. GitHub requires you to sign in to download artifacts.
+
+### Shell script (recommended for macOS/Linux)
 
 ```
 curl -fsSL https://raw.githubusercontent.com/jneb802/mod-manager-cli/main/install.sh | bash
@@ -32,7 +36,7 @@ brew install jneb802/tap/mmcli
 
 ### Manual download
 
-Download the latest binary for your platform from [Releases](https://github.com/jneb802/mod-manager-cli/releases), then:
+Download the latest binary for your platform from the original project's [Releases](https://github.com/jneb802/mod-manager-cli/releases), or extract this fork's `mmcli-macos` artifact, then:
 
 ```
 mkdir -p ~/.local/bin
@@ -40,6 +44,25 @@ binary=mmcli-linux-amd64 # or mmcli-darwin-arm64 / mmcli-darwin-amd64
 chmod +x "$binary"
 mv "$binary" ~/.local/bin/mmcli
 ```
+
+### Windows
+
+Install Steam and Valheim, then download and extract this fork's `mmcli-windows-amd64` artifact from [CI builds](https://github.com/mitchieui/mod-manager-cli/actions/workflows/ci.yml?query=branch%3Acodex%2Fwindows-profile-transfer). Rename `mmcli-windows-amd64.exe` to `mmcli.exe` and open PowerShell in that folder:
+
+```powershell
+.\mmcli.exe init
+.\mmcli.exe tui
+```
+
+This detects your Valheim install, installs BepInEx, and creates a default profile. If detection fails, enter the folder containing `valheim.exe`.
+
+To launch the game:
+
+```powershell
+.\mmcli.exe start
+```
+
+Use `.\mmcli.exe` in place of `mmcli` for the commands below. Windows profiles are stored in `%APPDATA%\mmcli`. Exit the game normally to let it save; Ctrl+C forcibly stops it on Windows. The dedicated-server agent remains Linux-only.
 
 ## Getting Started
 
@@ -73,6 +96,13 @@ mmcli install RandyKnapp-EpicLoot
 
 Dependencies are resolved and installed automatically.
 
+Package names are looked up on Thunderstore first, then Hexium. To choose Hexium explicitly:
+
+```
+mmcli install hexium:Azumatt-AzuAutoStore
+mmcli install https://valheim.hexium.gg/mods/Azumatt/AzuAutoStore
+```
+
 ## Managing Mods
 
 ```
@@ -90,5 +120,27 @@ mmcli profile switch <name>
 mmcli profile list
 mmcli profile delete <name>
 mmcli profile import <url|code>   # import from r2modman/Thunderstore profile code
-mmcli profile open                # open profile folder in Finder
+mmcli profile open                # open profile folder in Finder or Explorer
+mmcli profile export <name> <archive.zip>   # export installed mods and configs
+mmcli profile restore <name> <archive.zip>  # restore into a new profile
 ```
+
+## Moving a Profile to Windows
+
+Close the game, then use this fork's Mac build to export a profile:
+
+```
+mmcli profile export default default.zip
+```
+
+Copy the archive to your Windows computer. After running `init`, restore it under a new name:
+
+```powershell
+.\mmcli.exe profile restore mac-default .\default.zip
+.\mmcli.exe profile switch mac-default
+.\mmcli.exe start
+```
+
+This preserves installed mod files, versions, sources, disabled states and configuration files. Existing profiles are never overwritten, and your Mac profile is unchanged.
+
+Exports include `plugins`, `config`, `patchers` and `monomod`; mods with tracked files outside those folders cannot be exported. BepInEx is installed separately on Windows. Game saves, server connections and local modpack paths are not included. Reconnect servers and adjust any mod-specific paths after moving. Keep profile archives private, since mod configs may contain personal settings.

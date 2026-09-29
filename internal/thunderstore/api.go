@@ -4,18 +4,38 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
 const (
-	baseURL         = "https://thunderstore.io"
-	experimentalAPI = baseURL + "/api/experimental/package/"
+	baseURL            = "https://thunderstore.io"
+	experimentalAPI    = baseURL + "/api/experimental/package/"
+	SourceThunderstore = "thunderstore"
+	SourceHexium       = "hexium"
 )
+
+var sourceAPIs = map[string]string{
+	SourceThunderstore: experimentalAPI,
+	SourceHexium:       "https://hexium.gg/api/experimental/package/",
+}
 
 // GetPackageVersion fetches a specific version of a package from the experimental API.
 func GetPackageVersion(owner, name, version string) (*Package, error) {
-	url := fmt.Sprintf("%s%s/%s/%s/", experimentalAPI, owner, name, version)
-	resp, err := http.Get(url)
+	return GetPackageVersionFrom(SourceThunderstore, owner, name, version)
+}
+
+// GetPackageVersionFrom fetches a specific package version from a supported source.
+func GetPackageVersionFrom(source, owner, name, version string) (*Package, error) {
+	if source == "" {
+		source = SourceThunderstore
+	}
+	api, err := apiForSource(source)
+	if err != nil {
+		return nil, err
+	}
+	endpoint := fmt.Sprintf("%s%s/%s/%s/", api, url.PathEscape(owner), url.PathEscape(name), url.PathEscape(version))
+	resp, err := http.Get(endpoint)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch package version: %w", err)
 	}
@@ -31,6 +51,7 @@ func GetPackageVersion(owner, name, version string) (*Package, error) {
 	}
 
 	pkg := &Package{
+		Source:   source,
 		Owner:    owner,
 		Name:     name,
 		FullName: fmt.Sprintf("%s-%s", owner, name),
@@ -51,8 +72,20 @@ func GetPackageVersion(owner, name, version string) (*Package, error) {
 
 // GetPackage fetches a single package from the experimental API.
 func GetPackage(owner, name string) (*Package, error) {
-	url := fmt.Sprintf("%s%s/%s/", experimentalAPI, owner, name)
-	resp, err := http.Get(url)
+	return GetPackageFrom(SourceThunderstore, owner, name)
+}
+
+// GetPackageFrom fetches the latest package version from a supported source.
+func GetPackageFrom(source, owner, name string) (*Package, error) {
+	if source == "" {
+		source = SourceThunderstore
+	}
+	api, err := apiForSource(source)
+	if err != nil {
+		return nil, err
+	}
+	endpoint := fmt.Sprintf("%s%s/%s/", api, url.PathEscape(owner), url.PathEscape(name))
+	resp, err := http.Get(endpoint)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch package: %w", err)
 	}
@@ -69,6 +102,7 @@ func GetPackage(owner, name string) (*Package, error) {
 
 	// Convert to Package type
 	pkg := &Package{
+		Source:   source,
 		Owner:    expPkg.Namespace,
 		Name:     expPkg.Name,
 		FullName: expPkg.FullName,
@@ -87,6 +121,17 @@ func GetPackage(owner, name string) (*Package, error) {
 	return pkg, nil
 }
 
+func apiForSource(source string) (string, error) {
+	if source == "" {
+		source = SourceThunderstore
+	}
+	api, ok := sourceAPIs[source]
+	if !ok {
+		return "", fmt.Errorf("unsupported mod source %q", source)
+	}
+	return api, nil
+}
+
 // ResolveDependencies resolves all dependencies for a package recursively.
 // Returns packages in topological order (dependencies first).
 // Skips BepInExPack_Valheim and already-installed mods.
@@ -99,8 +144,8 @@ func ResolveDependencies(pkg *Package, installed map[string]bool) ([]DepRef, err
 	visited := make(map[string]bool)
 	inStack := make(map[string]bool)
 
-	var dfs func(deps []string) error
-	dfs = func(deps []string) error {
+	var dfs func(source string, deps []string) error
+	dfs = func(source string, deps []string) error {
 		for _, dep := range deps {
 			ref := ParseDep(dep)
 			fullName := fmt.Sprintf("%s-%s", ref.Owner, ref.Name)
@@ -131,11 +176,7 @@ func ResolveDependencies(pkg *Package, installed map[string]bool) ([]DepRef, err
 			// matches the version required by the package manifest.
 			var depPkg *Package
 			var err error
-			if ref.Version == "" {
-				depPkg, err = GetPackage(ref.Owner, ref.Name)
-			} else {
-				depPkg, err = GetPackageVersion(ref.Owner, ref.Name, ref.Version)
-			}
+			depPkg, ref.Source, err = getDependency(source, ref)
 			if err != nil {
 				// Non-fatal: some deps may not resolve
 				fmt.Printf("  Warning: could not resolve dependency %s: %v\n", fullName, err)
@@ -144,7 +185,7 @@ func ResolveDependencies(pkg *Package, installed map[string]bool) ([]DepRef, err
 			}
 
 			if len(depPkg.Versions) > 0 {
-				if err := dfs(depPkg.Versions[0].Dependencies); err != nil {
+				if err := dfs(depPkg.Source, depPkg.Versions[0].Dependencies); err != nil {
 					return err
 				}
 			}
@@ -155,12 +196,13 @@ func ResolveDependencies(pkg *Package, installed map[string]bool) ([]DepRef, err
 				Owner:   ref.Owner,
 				Name:    ref.Name,
 				Version: ref.Version,
+				Source:  ref.Source,
 			})
 		}
 		return nil
 	}
 
-	if err := dfs(pkg.Versions[0].Dependencies); err != nil {
+	if err := dfs(pkg.Source, pkg.Versions[0].Dependencies); err != nil {
 		return nil, err
 	}
 
@@ -168,41 +210,95 @@ func ResolveDependencies(pkg *Package, installed map[string]bool) ([]DepRef, err
 }
 
 // FindPackageByQuery searches for a package by query string.
-// Accepts "Owner-Name", "Owner-Name-Version", or a Thunderstore URL.
+// Accepts "Owner-Name", "Owner-Name-Version", a supported mod URL, or
+// "hexium:Owner-Name" / "thunderstore:Owner-Name" for explicit selection.
 func FindPackageByQuery(query string) (*Package, error) {
-	// Try parsing as a Thunderstore URL (e.g., https://thunderstore.io/c/valheim/p/Owner/Name/)
-	if strings.HasPrefix(query, "https://thunderstore.io/") || strings.HasPrefix(query, "http://thunderstore.io/") {
-		parts := strings.Split(strings.Trim(query, "/"), "/")
-		// URL format: .../c/{community}/p/{owner}/{name}
+	source := ""
+	for _, candidate := range []string{SourceHexium, SourceThunderstore} {
+		prefix := candidate + ":"
+		if strings.HasPrefix(strings.ToLower(query), prefix) {
+			source = candidate
+			query = query[len(prefix):]
+			break
+		}
+	}
+
+	// Parse Thunderstore and Hexium package URLs.
+	if parsed, err := url.Parse(query); err == nil && parsed.Host != "" {
+		host := strings.ToLower(parsed.Hostname())
+		switch {
+		case host == "thunderstore.io" || strings.HasSuffix(host, ".thunderstore.io"):
+			source = SourceThunderstore
+		case host == "hexium.gg" || strings.HasSuffix(host, ".hexium.gg"):
+			source = SourceHexium
+		default:
+			return nil, fmt.Errorf("unsupported mod URL: %s", query)
+		}
+		parts := strings.Split(strings.Trim(parsed.Path, "/"), "/")
+		// Thunderstore uses /p/Owner/Name; Hexium uses /mods/Owner/Name.
 		for i, p := range parts {
-			if p == "p" && i+2 < len(parts) {
-				pkg, err := GetPackage(parts[i+1], parts[i+2])
+			if (p == "p" || p == "mods") && i+2 < len(parts) {
+				pkg, err := GetPackageFrom(source, parts[i+1], parts[i+2])
 				if err == nil {
 					return pkg, nil
 				}
 				return nil, fmt.Errorf("could not fetch package from URL: %w", err)
 			}
 		}
-		return nil, fmt.Errorf("could not parse Thunderstore URL: %s", query)
+		return nil, fmt.Errorf("could not parse mod URL: %s", query)
+	}
+
+	sources := []string{source}
+	if source == "" {
+		sources = []string{SourceThunderstore, SourceHexium}
 	}
 
 	// Try parsing as Owner-Name-Version first (e.g., "warpalicious-Praetoris-1.1.16")
 	ref := ParseDep(query)
 	if ref.Owner != "" && ref.Name != "" {
-		pkg, err := GetPackage(ref.Owner, ref.Name)
-		if err == nil {
-			return pkg, nil
+		for _, candidate := range sources {
+			pkg, err := GetPackageFrom(candidate, ref.Owner, ref.Name)
+			if err == nil {
+				return pkg, nil
+			}
 		}
 	}
 
 	// Try as Owner-Name (e.g., "warpalicious-Praetoris")
 	parts := strings.SplitN(query, "-", 2)
 	if len(parts) == 2 {
-		pkg, err := GetPackage(parts[0], parts[1])
-		if err == nil {
-			return pkg, nil
+		for _, candidate := range sources {
+			pkg, err := GetPackageFrom(candidate, parts[0], parts[1])
+			if err == nil {
+				return pkg, nil
+			}
 		}
 	}
 
-	return nil, fmt.Errorf("no package found matching '%s' — use Owner-Name format or a Thunderstore URL", query)
+	return nil, fmt.Errorf("no package found matching '%s' — use Owner-Name, hexium:Owner-Name, or a package URL", query)
+}
+
+func getDependency(preferredSource string, ref DepRef) (*Package, string, error) {
+	sources := []string{preferredSource}
+	if preferredSource == "" {
+		sources[0] = SourceThunderstore
+	}
+	if sources[0] == SourceThunderstore {
+		sources = append(sources, SourceHexium)
+	} else {
+		sources = append(sources, SourceThunderstore)
+	}
+	var lastErr error
+	for _, source := range sources {
+		var pkg *Package
+		if ref.Version == "" {
+			pkg, lastErr = GetPackageFrom(source, ref.Owner, ref.Name)
+		} else {
+			pkg, lastErr = GetPackageVersionFrom(source, ref.Owner, ref.Name, ref.Version)
+		}
+		if lastErr == nil {
+			return pkg, source, nil
+		}
+	}
+	return nil, "", lastErr
 }

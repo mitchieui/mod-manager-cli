@@ -7,20 +7,20 @@ const (
 	RoleAdmin  = "admin"
 	RolePlayer = "player"
 
-	PathStatus  = "/api/v1/status"
-	PathStart   = "/api/v1/start"
-	PathStop    = "/api/v1/stop"
-	PathRestart = "/api/v1/restart"
-	PathMods     = "/api/v1/mods"
+	PathStatus         = "/api/v1/status"
+	PathStart          = "/api/v1/start"
+	PathStop           = "/api/v1/stop"
+	PathRestart        = "/api/v1/restart"
+	PathMods           = "/api/v1/mods"
 	PathModsModeration = "/api/v1/mods/moderation"
 	PathModsManage     = "/api/v1/mods/manage"
-	PathLogs     = "/api/v1/logs"
-	PathSettings = "/api/v1/settings"
-	PathUpdate   = "/api/v1/update"
+	PathLogs           = "/api/v1/logs"
+	PathSettings       = "/api/v1/settings"
+	PathUpdate         = "/api/v1/update"
 
-	PathWorlds       = "/api/v1/worlds"
-	PathWorldUpload  = "/api/v1/worlds/upload"
-	PathWorldDelete  = "/api/v1/worlds/delete"
+	PathWorlds      = "/api/v1/worlds"
+	PathWorldUpload = "/api/v1/worlds/upload"
+	PathWorldDelete = "/api/v1/worlds/delete"
 
 	PathPlayers = "/api/v1/players"
 	PathWebhook = "/api/v1/webhook"
@@ -118,10 +118,10 @@ type ActionResponse struct {
 
 // ModerationUpdateRequest sets the anticheat classification for a single mod.
 type ModerationUpdateRequest struct {
-	ModName   string `json:"mod_name"`              // Thunderstore name (e.g. "RandyKnapp-EpicLoot")
-	Anticheat string `json:"anticheat"`             // "whitelist", "greylist", "adminonly", "serveronly", ""
-	GUID      string `json:"guid,omitempty"`        // BepInEx GUID (for mods not on server)
-	Version   string `json:"version,omitempty"`     // mod version (for mods not on server)
+	ModName   string `json:"mod_name"`          // Thunderstore name (e.g. "RandyKnapp-EpicLoot")
+	Anticheat string `json:"anticheat"`         // "whitelist", "greylist", "adminonly", "serveronly", ""
+	GUID      string `json:"guid,omitempty"`    // BepInEx GUID (for mods not on server)
+	Version   string `json:"version,omitempty"` // mod version (for mods not on server)
 }
 
 // ModManageRequest adds, updates, or removes a single mod on the server.
@@ -131,7 +131,7 @@ type ModManageRequest struct {
 }
 
 type ModListResponse struct {
-	Mods         []ModInfo    `json:"mods"`
+	Mods         []ModInfo     `json:"mods"`
 	Manifest     *PushManifest `json:"manifest,omitempty"`      // current server manifest for reconciliation
 	ManifestTime string        `json:"manifest_time,omitempty"` // RFC3339 when last push occurred
 	LogParsed    bool          `json:"log_parsed"`              // whether BepInEx log was available
@@ -156,14 +156,14 @@ type ModInfo struct {
 const ManifestFileName = "mmcli-manifest.json"
 
 type ManifestMod struct {
-	DirName   string `json:"dir_name"`            // "RandyKnapp-EpicLoot"
-	Owner     string `json:"owner"`               // "RandyKnapp"
-	Name      string `json:"name"`                // "EpicLoot"
-	Version   string `json:"version"`             // "0.12.11"
-	Target    string `json:"target"`              // "server" or "both"
-	Anticheat string `json:"anticheat"`           // "whitelist", "greylist", "adminonly", ""
-	Source    string `json:"source"`              // "thunderstore" or "upload"
-	GUID      string `json:"guid,omitempty"`      // BepInEx plugin GUID (persisted after first match)
+	DirName   string `json:"dir_name"`       // "RandyKnapp-EpicLoot"
+	Owner     string `json:"owner"`          // "RandyKnapp"
+	Name      string `json:"name"`           // "EpicLoot"
+	Version   string `json:"version"`        // "0.12.11"
+	Target    string `json:"target"`         // "server" or "both"
+	Anticheat string `json:"anticheat"`      // "whitelist", "greylist", "adminonly", ""
+	Source    string `json:"source"`         // "thunderstore", "hexium", or "upload"
+	GUID      string `json:"guid,omitempty"` // BepInEx plugin GUID (persisted after first match)
 }
 
 type PushManifest struct {

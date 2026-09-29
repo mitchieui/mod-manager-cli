@@ -15,6 +15,9 @@ var renamePath = os.Rename
 // Create creates a new profile directory with plugins/ and config/ subdirectories.
 // If a source profile exists, it copies BepInEx.cfg to the new profile.
 func Create(paths config.Paths, name string) error {
+	if err := ValidateName(name); err != nil {
+		return err
+	}
 	profileDir := paths.ProfileDir(name)
 	if _, err := os.Stat(profileDir); err == nil {
 		return fmt.Errorf("profile '%s' already exists", name)
@@ -77,6 +80,9 @@ func List(paths config.Paths) ([]string, error) {
 
 // Switch changes the active profile and activates its BepInEx paths.
 func Switch(paths config.Paths, cfg *config.Config, name string) error {
+	if err := ValidateName(name); err != nil {
+		return err
+	}
 	profileDir := paths.ProfileDir(name)
 	if _, err := os.Stat(profileDir); os.IsNotExist(err) {
 		return fmt.Errorf("profile '%s' does not exist", name)
@@ -92,6 +98,9 @@ func Switch(paths config.Paths, cfg *config.Config, name string) error {
 
 // Delete removes a profile. Refuses to delete the active profile.
 func Delete(paths config.Paths, cfg config.Config, name string) error {
+	if err := ValidateName(name); err != nil {
+		return err
+	}
 	if cfg.ActiveProfile == name {
 		return fmt.Errorf("cannot delete active profile '%s'. Switch to another profile first", name)
 	}
@@ -104,6 +113,9 @@ func Delete(paths config.Paths, cfg config.Config, name string) error {
 
 // Activate makes the given profile's directories the active BepInEx targets.
 func Activate(paths config.Paths, name string) error {
+	if err := ValidateName(name); err != nil {
+		return err
+	}
 	if runtime.GOOS == "windows" {
 		return writeDoorstopConfig(paths, name)
 	}

@@ -3,6 +3,8 @@ package profile
 import (
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 
 	"mmcli/internal/config"
@@ -30,8 +32,7 @@ func TestCreateProfile(t *testing.T) {
 	}
 
 	// Verify directories were created
-	for _, sub := range []string{"plugins", "config", "patchers", "monomod"} {
-		dir := filepath.Join(paths.ProfilesDir, "test", sub)
+	for sub, dir := range profileDirs(paths, "test") {
 		if _, err := os.Stat(dir); os.IsNotExist(err) {
 			t.Errorf("missing directory: %s", sub)
 		}
@@ -120,6 +121,8 @@ func TestDeleteNonExistentProfile(t *testing.T) {
 func TestSwitchProfile(t *testing.T) {
 	paths := testPaths(t)
 	Create(paths, "first")
+	os.MkdirAll(paths.ProfileCoreDir("first"), 0755)
+	os.WriteFile(filepath.Join(paths.ProfileCoreDir("first"), "BepInEx.Preloader.dll"), []byte("runtime"), 0644)
 	Create(paths, "second")
 
 	cfg := &config.Config{ActiveProfile: "first"}
@@ -131,6 +134,19 @@ func TestSwitchProfile(t *testing.T) {
 		t.Errorf("ActiveProfile = %q, want %q", cfg.ActiveProfile, "second")
 	}
 
+	if runtime.GOOS == "windows" {
+		data, err := os.ReadFile(filepath.Join(paths.ValheimDir, "doorstop_config.ini"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(data), "target_assembly="+filepath.Join(paths.ProfileCoreDir("second"), "BepInEx.Preloader.dll")) {
+			t.Fatalf("wrong Windows profile target: %s", data)
+		}
+		if _, err := os.Lstat(paths.BepInExPluginsDir()); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
 	// Verify symlinks point to the right profile
 	pluginsLink := paths.BepInExPluginsDir()
 	target, err := os.Readlink(pluginsLink)
@@ -156,6 +172,11 @@ func TestCreateProfileCopiesBepInExCfg(t *testing.T) {
 
 	// Create a BepInEx.cfg in the config dir
 	bepCfg := filepath.Join(paths.BepInExConfigDir(), "BepInEx.cfg")
+	if runtime.GOOS == "windows" {
+		Create(paths, "template")
+		os.WriteFile(filepath.Join(paths.ProfileCoreDir("template"), "BepInEx.Preloader.dll"), []byte("runtime"), 0644)
+		bepCfg = filepath.Join(paths.ProfileConfigDir("template"), "BepInEx.cfg")
+	}
 	os.WriteFile(bepCfg, []byte("[Logging]\nEnabled = true\n"), 0644)
 
 	if err := Create(paths, "withcfg"); err != nil {

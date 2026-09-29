@@ -211,7 +211,7 @@ func checkUpdates(mods []config.ModEntry) tea.Cmd {
 			if mod.IsLocal || mod.Owner == "" {
 				continue
 			}
-			pkg, err := thunderstore.GetPackage(mod.Owner, mod.Name)
+			pkg, err := thunderstore.GetPackageFrom(mod.Source, mod.Owner, mod.Name)
 			if err != nil || len(pkg.Versions) == 0 {
 				continue
 			}
@@ -273,7 +273,7 @@ func installModToServer(query string, c *client.AgentClient) tea.Cmd {
 				Owner:   pkg.Owner,
 				Name:    pkg.Name,
 				Version: latest.VersionNumber,
-				Source:  "thunderstore",
+				Source:  pkg.Source,
 			},
 		}
 		if _, err := c.ManageMod(req); err != nil {
@@ -463,7 +463,10 @@ func updateModToServer(paths config.Paths, cfg config.Config, reg *config.Regist
 			config.SaveRegistry(paths, *reg)
 			mod, ok := reg.GetMod(cfg.ActiveProfile, fullName)
 			if ok {
-				source := "thunderstore"
+				source := mod.Source
+				if source == "" {
+					source = "thunderstore"
+				}
 				if mod.Owner == "local" {
 					source = "upload"
 				}

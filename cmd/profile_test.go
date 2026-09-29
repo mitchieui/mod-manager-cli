@@ -22,6 +22,8 @@ func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 func TestProfileImportInstallsManifestVersion(t *testing.T) {
 	homeDir := t.TempDir()
 	t.Setenv("HOME", homeDir)
+	t.Setenv("APPDATA", homeDir)
+	t.Setenv("USERPROFILE", homeDir)
 
 	paths, err := config.DefaultPaths()
 	if err != nil {

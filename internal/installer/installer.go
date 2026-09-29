@@ -36,7 +36,7 @@ func InstallVersion(paths config.Paths, cfg config.Config, reg *config.Registry,
 			return err
 		}
 		fmt.Printf("Resolving %s-%s v%s...\n", pkg.Owner, pkg.Name, version)
-		pkg, err = thunderstore.GetPackageVersion(pkg.Owner, pkg.Name, version)
+		pkg, err = thunderstore.GetPackageVersionFrom(pkg.Source, pkg.Owner, pkg.Name, version)
 		if err != nil {
 			return err
 		}
@@ -78,9 +78,9 @@ func InstallVersion(paths config.Paths, cfg config.Config, reg *config.Registry,
 		fmt.Printf("  Installing dependency %s...\n", depFullName)
 		var depPkg *thunderstore.Package
 		if dep.Version == "" {
-			depPkg, err = thunderstore.GetPackage(dep.Owner, dep.Name)
+			depPkg, err = thunderstore.GetPackageFrom(dep.Source, dep.Owner, dep.Name)
 		} else {
-			depPkg, err = thunderstore.GetPackageVersion(dep.Owner, dep.Name, dep.Version)
+			depPkg, err = thunderstore.GetPackageVersionFrom(dep.Source, dep.Owner, dep.Name, dep.Version)
 		}
 		if err != nil {
 			fmt.Printf("  Warning: could not fetch %s: %v\n", depFullName, err)
@@ -102,6 +102,7 @@ func InstallVersion(paths config.Paths, cfg config.Config, reg *config.Registry,
 			Owner:        dep.Owner,
 			Name:         dep.Name,
 			Version:      version,
+			Source:       depPkg.Source,
 			IsDependency: true,
 			Files:        files,
 		})
@@ -127,6 +128,7 @@ func InstallVersion(paths config.Paths, cfg config.Config, reg *config.Registry,
 		Owner:        pkg.Owner,
 		Name:         pkg.Name,
 		Version:      installedVersion,
+		Source:       pkg.Source,
 		IsDependency: false,
 		Files:        files,
 		Dependencies: depNames,
@@ -354,7 +356,7 @@ func downloadAndExtract(paths config.Paths, cfg config.Config, pkg *thunderstore
 	}
 
 	ver := pkg.Versions[0]
-	zipPath, err := downloadMod(paths, pkg.Owner, pkg.Name, ver.VersionNumber, ver.DownloadURL)
+	zipPath, err := downloadMod(paths, pkg.Source, pkg.Owner, pkg.Name, ver.VersionNumber, ver.DownloadURL)
 	if err != nil {
 		return nil, err
 	}
@@ -362,9 +364,12 @@ func downloadAndExtract(paths config.Paths, cfg config.Config, pkg *thunderstore
 	return extractMod(paths, cfg, pkg.Owner, pkg.Name, zipPath)
 }
 
-func downloadMod(paths config.Paths, owner, name, version, downloadURL string) (string, error) {
+func downloadMod(paths config.Paths, source, owner, name, version, downloadURL string) (string, error) {
 	os.MkdirAll(paths.CacheDir, 0755)
-	filename := fmt.Sprintf("%s-%s-%s.zip", owner, name, version)
+	if source == "" {
+		source = thunderstore.SourceThunderstore
+	}
+	filename := fmt.Sprintf("%s-%s-%s-%s.zip", source, owner, name, version)
 	zipPath := filepath.Join(paths.CacheDir, filename)
 
 	// Skip if cached
@@ -400,6 +405,7 @@ func downloadMod(paths config.Paths, owner, name, version, downloadURL string) (
 // Recognized override folders (plugins/, patchers/, monomod/, core/, config/) route
 // files to the corresponding BepInEx subdirectory. Files not in any override folder
 // default to plugins/<Author-Name>/. Subdirectory structure is preserved.
+// Archives may wrap these folders in a top-level BepInEx/ directory.
 func extractMod(paths config.Paths, cfg config.Config, owner, name, zipPath string) ([]string, error) {
 	r, err := zip.OpenReader(zipPath)
 	if err != nil {
@@ -432,6 +438,9 @@ func extractMod(paths config.Paths, cfg config.Config, owner, name, zipPath stri
 		}
 
 		fname := filepath.ToSlash(f.Name)
+		if len(fname) > len("BepInEx/") && strings.EqualFold(fname[:len("BepInEx/")], "BepInEx/") {
+			fname = fname[len("BepInEx/"):]
+		}
 		baseName := filepath.Base(fname)
 
 		// Skip metadata
@@ -518,7 +527,11 @@ func Update(paths config.Paths, cfg config.Config, reg *config.Registry, modName
 	removeModFilesKeepConfig(paths, cfg, mod)
 	reg.RemoveMod(profile, fullName)
 
-	return Install(paths, cfg, reg, fullName, existingTarget)
+	query := fullName
+	if mod.Source != "" {
+		query = mod.Source + ":" + fullName
+	}
+	return Install(paths, cfg, reg, query, existingTarget)
 }
 
 // IsLocalPath returns true if the string refers to an existing file or directory.
@@ -670,7 +683,8 @@ func removeModFiles(paths config.Paths, cfg config.Config, mod config.ModEntry) 
 
 	// Remove individually tracked files (config files without author subfolder)
 	for _, f := range mod.Files {
-		if strings.Contains(f, "/config/") {
+		rel, err := filepath.Rel(paths.ProfileConfigDir(profile), f)
+		if err == nil && rel != "." && filepath.IsLocal(rel) {
 			os.Remove(f)
 		}
 	}

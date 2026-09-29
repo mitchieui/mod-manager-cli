@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'codex/**']
   pull_request:
     branches: [main]
 
@@ -21,7 +21,33 @@ jobs:
           GOOS=darwin GOARCH=arm64 go build -o dist/mmcli-darwin-arm64 -ldflags "-X mmcli/cmd.Version=ci" .
           GOOS=darwin GOARCH=amd64 go build -o dist/mmcli-darwin-amd64 -ldflags "-X mmcli/cmd.Version=ci" .
           GOOS=linux GOARCH=amd64 go build -o dist/mmcli-linux-amd64 -ldflags "-X mmcli/cmd.Version=ci" .
+          GOOS=windows GOARCH=amd64 go build -o dist/mmcli-windows-amd64.exe -ldflags "-X mmcli/cmd.Version=ci" .
           GOOS=linux GOARCH=amd64 go build -o dist/mmcli-agent-linux-amd64 -ldflags "-X main.Version=ci" ./cmd/agent
 
       - name: Run tests
         run: go test ./...
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mmcli-macos
+          path: dist/mmcli-darwin-*
+
+  windows-client:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build Windows client
+        run: go build -o dist/mmcli-windows-amd64.exe .
+      - name: Test Windows client packages
+        shell: pwsh
+        run: |
+          $packages = go list -deps . | Where-Object { $_ -match '^mmcli(/|$)' }
+          go test $packages
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mmcli-windows-amd64
+          path: dist/mmcli-windows-amd64.exe

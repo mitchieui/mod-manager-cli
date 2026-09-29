@@ -1,15 +1,16 @@
 package thunderstore
 
 type Package struct {
-	Owner             string    `json:"owner"`
-	Name              string    `json:"name"`
-	FullName          string    `json:"full_name"`
-	PackageURL        string    `json:"package_url"`
-	RatingScore       int       `json:"rating_score"`
-	IsPinned          bool      `json:"is_pinned"`
-	IsDeprecated      bool      `json:"is_deprecated"`
-	Categories        []string  `json:"categories"`
-	Versions          []Version `json:"versions"`
+	Source       string    `json:"source,omitempty"`
+	Owner        string    `json:"owner"`
+	Name         string    `json:"name"`
+	FullName     string    `json:"full_name"`
+	PackageURL   string    `json:"package_url"`
+	RatingScore  int       `json:"rating_score"`
+	IsPinned     bool      `json:"is_pinned"`
+	IsDeprecated bool      `json:"is_deprecated"`
+	Categories   []string  `json:"categories"`
+	Versions     []Version `json:"versions"`
 }
 
 type Version struct {
@@ -25,9 +26,9 @@ type Version struct {
 
 // ExperimentalPackage is the response from the experimental API endpoint.
 type ExperimentalPackage struct {
-	Namespace   string              `json:"namespace"`
-	Name        string              `json:"name"`
-	FullName    string              `json:"full_name"`
+	Namespace     string              `json:"namespace"`
+	Name          string              `json:"name"`
+	FullName      string              `json:"full_name"`
 	LatestVersion ExperimentalVersion `json:"latest"`
 }
 
@@ -43,6 +44,7 @@ type DepRef struct {
 	Owner   string
 	Name    string
 	Version string
+	Source  string
 }
 
 func ParseDep(dep string) DepRef {

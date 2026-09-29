@@ -124,7 +124,7 @@ Use --json for machine-readable output.`,
 var profileSwitchCmd = &cobra.Command{
 	Use:   "switch <name>",
 	Short: "Switch to a different profile",
-	Long: `Switch the active profile. This updates BepInEx symlinks so the new profile's
+	Long: `Switch the active profile. This updates BepInEx paths so the new profile's
 mods and configs are loaded on next game launch.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -387,7 +387,7 @@ func importProfileCode(paths config.Paths, cfg config.Config, code string) error
 
 var profileOpenCmd = &cobra.Command{
 	Use:   "open",
-	Short: "Open the active profile folder in Finder",
+	Short: "Open the active profile folder in the file manager",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		paths, cfg, err := loadConfig()
 		if err != nil {

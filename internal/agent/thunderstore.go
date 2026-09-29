@@ -8,15 +8,20 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"mmcli/internal/thunderstore"
 )
 
 const thunderstoreDownloadURL = "https://thunderstore.io/package/download/%s/%s/%s/"
 
 // downloadModZip downloads a mod from Thunderstore into the cache directory.
 // Returns the path to the cached zip. Skips download if already cached.
-func downloadModZip(cacheDir, owner, name, version string) (zipPath string, cached bool, err error) {
+func downloadModZip(cacheDir, source, owner, name, version string) (zipPath string, cached bool, err error) {
 	os.MkdirAll(cacheDir, 0755)
-	filename := fmt.Sprintf("%s-%s-%s.zip", owner, name, version)
+	if source == "" {
+		source = thunderstore.SourceThunderstore
+	}
+	filename := fmt.Sprintf("%s-%s-%s-%s.zip", source, owner, name, version)
 	zipPath = filepath.Join(cacheDir, filename)
 
 	// Skip if cached
@@ -24,8 +29,18 @@ func downloadModZip(cacheDir, owner, name, version string) (zipPath string, cach
 		return zipPath, true, nil
 	}
 
-	url := fmt.Sprintf(thunderstoreDownloadURL, owner, name, version)
-	resp, err := http.Get(url)
+	downloadURL := fmt.Sprintf(thunderstoreDownloadURL, owner, name, version)
+	if source == thunderstore.SourceHexium {
+		pkg, resolveErr := thunderstore.GetPackageVersionFrom(source, owner, name, version)
+		if resolveErr != nil {
+			return "", false, fmt.Errorf("failed to resolve Hexium download: %w", resolveErr)
+		}
+		if len(pkg.Versions) == 0 || pkg.Versions[0].DownloadURL == "" {
+			return "", false, fmt.Errorf("Hexium package has no download URL")
+		}
+		downloadURL = pkg.Versions[0].DownloadURL
+	}
+	resp, err := http.Get(downloadURL)
 	if err != nil {
 		return "", false, fmt.Errorf("download failed: %w", err)
 	}
@@ -175,7 +190,6 @@ func removeModDirs(bepDir, dirName string) {
 		}
 	}
 }
-
 
 // agentCacheDir returns the cache directory for the agent.
 func agentCacheDir() string {

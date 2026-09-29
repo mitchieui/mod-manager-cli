@@ -42,7 +42,7 @@ func TestAllCommandsRegistered(t *testing.T) {
 
 // TestProfileSubcommands verifies profile has all its subcommands.
 func TestProfileSubcommands(t *testing.T) {
-	expected := []string{"create", "list", "switch", "delete", "import", "open"}
+	expected := []string{"create", "list", "switch", "delete", "import", "open", "export", "restore"}
 
 	var profileCmd *cobra.Command
 	for _, cmd := range rootCmd.Commands() {
@@ -238,4 +238,3 @@ func TestRemoveFlags(t *testing.T) {
 		t.Error("missing --server flag")
 	}
 }
-

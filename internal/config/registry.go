@@ -12,14 +12,15 @@ type ModEntry struct {
 	Owner        string   `json:"owner"`
 	Name         string   `json:"name"`
 	Version      string   `json:"version"`
+	Source       string   `json:"source,omitempty"` // "thunderstore", "hexium", or empty for legacy entries
 	IsDependency bool     `json:"is_dependency"`
 	IsLocal      bool     `json:"-"`
 	Disabled     bool     `json:"disabled,omitempty"`
 	Files        []string `json:"files"`
 	Dependencies []string `json:"dependencies"`
-	Target    string   `json:"target,omitempty"`    // "client", "server", "both" (default/"" = both)
-	Anticheat string   `json:"anticheat,omitempty"` // vestigial — server is source of truth; kept for CLI compat
-	GUID      string   `json:"guid,omitempty"`      // BepInEx plugin GUID, persisted after first match
+	Target       string   `json:"target,omitempty"`    // "client", "server", "both" (default/"" = both)
+	Anticheat    string   `json:"anticheat,omitempty"` // vestigial — server is source of truth; kept for CLI compat
+	GUID         string   `json:"guid,omitempty"`      // BepInEx plugin GUID, persisted after first match
 }
 
 func (m ModEntry) ResolvedTarget() string {
@@ -38,11 +39,11 @@ func (m ModEntry) FullName() string {
 
 // ProfileSettings stores per-profile configuration (server, modpack, anticheat).
 type ProfileSettings struct {
-	Server            string `json:"server,omitempty"`              // key into Config.Servers
-	ServerManagement  *bool  `json:"server_management,omitempty"`   // nil = enabled
+	Server            string `json:"server,omitempty"`            // key into Config.Servers
+	ServerManagement  *bool  `json:"server_management,omitempty"` // nil = enabled
 	ModpackPath       string `json:"modpack_path,omitempty"`
-	ModpackManagement *bool  `json:"modpack_management,omitempty"`  // nil = enabled
-	AnticheatSystem   string `json:"anticheat_system,omitempty"`    // "auto", "azu", "enforcer", ""
+	ModpackManagement *bool  `json:"modpack_management,omitempty"` // nil = enabled
+	AnticheatSystem   string `json:"anticheat_system,omitempty"`   // "auto", "azu", "enforcer", ""
 }
 
 // ServerManagementEnabled returns true if server management is enabled (default: true).
@@ -93,7 +94,20 @@ func SaveRegistry(p Paths, reg Registry) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(p.RegistryFile, data, 0644)
+	// Keep the old registry intact if writing fails, including during imports.
+	f, err := os.CreateTemp(filepath.Dir(p.RegistryFile), ".mmcli-registry-*")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(f.Name())
+	if _, err := f.Write(data); err != nil {
+		f.Close()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	return os.Rename(f.Name(), p.RegistryFile)
 }
 
 func (r *Registry) EnsureProfile(name string) {
